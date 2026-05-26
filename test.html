@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+    <body>
+        <h2>Rust WebSocket Test Client</h2>
+        <div id="output"></div>
+
+        <script>
+            // connect to the Rust server
+            const socket = new WebSocket("ws://127.0.0.1:3000/ws");
+
+            // when the connection opens, send a message
+            socket.onopen = function (e) {
+                document.getElementById("output").innerHTML +=
+                    "<p>Connected to server!</p>";
+                socket.send("Hello from the browser!");
+            };
+
+            // when the Rust server echoes back, print it
+            socket.onmessage = function (event) {
+                document.getElementById("output").innerHTML +=
+                    `<p>Server says: ${event.data}</p>`;
+            };
+
+            socket.onclose = function (event) {
+                document.getElementById("output").innerHTML +=
+                    "<p>Disconnected.</p>";
+            };
+        </script>
+    </body>
+</html>
