@@ -33,7 +33,8 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    let redis_client = redis::Client::open("redis://127.0.0.1/").unwrap();
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1/".to_string());
+    let redis_client = redis::Client::open(redis_url).unwrap();
 
     // initialize the empty, locked dictionary
     let players: PlayerRegistry = Arc::new(Mutex::new(HashMap::new()));
@@ -49,7 +50,7 @@ async fn main() {
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .with_state(state);
-    let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
+    let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Gateway running. Connected to Redis. Global Registry active.");
     axum::serve(listener, app).await.unwrap();
 }

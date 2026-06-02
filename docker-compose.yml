@@ -1,9 +1,31 @@
 version: "3.8"
 
 services:
-  redis-broker:
+  matchmaker-redis:
     image: redis:latest
     container_name: matchmaker-redis
     ports:
       - "6379:6379"
+    restart: always
+
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - REDIS_URL=redis://matchmaker-redis/
+    depends_on:
+      - matchmaker-redis
+    restart: always
+
+  matchmaker:
+    build: ./matchmaker
+    container_name: matchmaker
+    env_file:
+      - ./matchmaker/.env
+    environment:
+      - REDIS_ADDR=matchmaker-redis:6379
+    depends_on:
+      - matchmaker-redis
     restart: always

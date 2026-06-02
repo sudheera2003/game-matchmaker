@@ -46,10 +46,16 @@ func main() {
 	collection := mongoClient.Database("matchmaker").Collection("active_sessions")
 	fmt.Println("Connected to MongoDB Atlas!")
 
-	// Connect to Local Redis
+	// Connect to Redis
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379" // Fallback for local testing
+	}
+
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr: redisAddr,
 	})
+
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		log.Fatal("Redis connection failed: ", err)
 	}
