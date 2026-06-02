@@ -91,7 +91,19 @@ func main() {
 		if err != nil {
 			log.Println("Failed to save to MongoDB:", err)
 		} else {
-			fmt.Printf("Successfully stored %s in Atlas!\n", msg.PlayerID)
+			fmt.Printf("Successfully upserted %s in Atlas!\n", msg.PlayerID)
+
+			// return broadcast
+			// create a JSON payload that includes the player_id
+			broadcastMsg := fmt.Sprintf(`{"player_id": "%s", "message": "Database confirmed: You are officially in the matchmaking queue!"}`, msg.PlayerID)
+
+			// publish to the 'match_events' channel
+			err = redisClient.Publish(ctx, "match_events", broadcastMsg).Err()
+			if err != nil {
+				log.Println("Failed to broadcast to Redis:", err)
+			} else {
+				fmt.Println("Broadcast sent to Rust servers!")
+			}
 		}
 	}
 }
