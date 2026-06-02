@@ -12,7 +12,13 @@
             socket.onopen = function (e) {
                 document.getElementById("output").innerHTML +=
                     "<p>Connected to server!</p>";
-                socket.send("Hello from the browser!");
+
+                // send JSON
+                const payload = {
+                    action: "join_queue",
+                    player_id: "player_99",
+                };
+                socket.send(JSON.stringify(payload));
             };
 
             // when the Rust server echoes back, print it
