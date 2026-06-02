@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  redis-broker:
+    image: redis:latest
+    container_name: matchmaker-redis
+    ports:
+      - "6379:6379"
+    restart: always

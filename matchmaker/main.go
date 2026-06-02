@@ -2,18 +2,27 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// NoSQL doc structure
+// JSON coming from rust
+type ClientMessage struct {
+	Action   string `json:"action"`
+	PlayerID string `json:"player_id"`
+}
+
+// Map the Document going to MongoDB
 type PlayerSession struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty"`
 	PlayerID  string             `bson:"player_id"`
@@ -26,34 +35,63 @@ func main() {
 		log.Println("No .env file found")
 	}
 
-	uri := os.Getenv("ATLAS_URI")
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	opts := options.Client().ApplyURI(uri).SetServerAPIOptions(serverAPI)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	client, err := mongo.Connect(ctx, opts)
+	mongoURI := os.Getenv("ATLAS_URI")
+	ctx := context.Background()
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		log.Fatal("Failed to connect: ", err)
+		log.Fatal("Mongo connection failed: ", err)
 	}
-	defer client.Disconnect(ctx)
+	defer mongoClient.Disconnect(ctx)
 
-	// select database and collection
-	collection := client.Database("matchmaker").Collection("active_sessions")
+	collection := mongoClient.Database("matchmaker").Collection("active_sessions")
+	fmt.Println("Connected to MongoDB Atlas!")
 
-	// create a new player in memory
-	newPlayer := PlayerSession{
-		PlayerID:  "player_99",
-		Status:    "waiting_in_queue",
-		CreatedAt: time.Now(),
+	// Connect to Local Redis
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		log.Fatal("Redis connection failed: ", err)
 	}
+	fmt.Println("Connected to Redis! Waiting for players...")
 
-	// insert the document into Atlas
-	insertResult, err := collection.InsertOne(ctx, newPlayer)
-	if err != nil {
-		log.Fatal("Failed to insert document: ", err)
+	// Worker Loop
+	for {
+		// BRPOP
+		result, err := redisClient.BRPop(ctx, 0, "player_queue").Result()
+		if err != nil {
+			log.Println("Error reading from Redis:", err)
+			continue
+		}
+
+		// result[0] is the queue name, result[1] is the actual JSON string from Rust
+		rawJSON := result[1]
+
+		// Parse the JSON into Go struct
+		var msg ClientMessage
+		if err := json.Unmarshal([]byte(rawJSON), &msg); err != nil {
+			log.Println("Invalid JSON received:", err)
+			continue
+		}
+
+		fmt.Printf("Processing %s for %s...\n", msg.Action, msg.PlayerID)
+
+		filter := bson.M{"player_id": msg.PlayerID}
+
+		update := bson.M{
+			"$set": bson.M{
+				"status":     "waiting_in_queue",
+				"created_at": time.Now(),
+			},
+		}
+
+		opts := options.Update().SetUpsert(true)
+
+		_, err = collection.UpdateOne(ctx, filter, update, opts)
+		if err != nil {
+			log.Println("Failed to save to MongoDB:", err)
+		} else {
+			fmt.Printf("Successfully stored %s in Atlas!\n", msg.PlayerID)
+		}
 	}
-
-	fmt.Printf("Success, Inserted player with Database ID: %v\n", insertResult.InsertedID)
 }
