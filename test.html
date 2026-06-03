@@ -18,28 +18,37 @@
         ></div>
 
         <script>
-            // Generate ONE identity for this entire browser tab
             const myPlayerId = "player_" + Math.floor(Math.random() * 10000);
-            document.getElementById("identity").innerText =
-                "You are: " + myPlayerId;
+
+            const mySkill = Math.floor(Math.random() * 6500);
+
+            document.getElementById("identity").innerHTML =
+                `You are: <b>${myPlayerId}</b> (MMR: ${mySkill})`;
 
             const socket = new WebSocket("ws://127.0.0.1:3000/ws");
             const output = document.getElementById("output");
 
             socket.onopen = function (e) {
                 output.innerHTML +=
-                    "<p style='color: green;'>Connected to server!</p>";
+                    "<p style='color: green;'>Connected to edge gateway!</p>";
             };
 
-            // Always send the same identity
             document.getElementById("joinBtn").onclick = function () {
-                const payload = { action: "join_queue", player_id: myPlayerId };
+                const payload = {
+                    action: "join_queue",
+                    player_id: myPlayerId,
+                    skill_rating: mySkill,
+                };
                 socket.send(JSON.stringify(payload));
-                output.innerHTML += `<p><i>Sent request to join...</i></p>`;
+                output.innerHTML += `<p><i>Searching for a fair match...</i></p>`;
             };
 
             socket.onmessage = function (event) {
-                output.innerHTML += `<p style='color: blue;'><b>Server says:</b> ${event.data}</p>`;
+                if (event.data.includes("[MATCH FOUND]")) {
+                    output.innerHTML += `<p style='color: #b8860b; font-size: 18px;'><b>${event.data}</b></p>`;
+                } else {
+                    output.innerHTML += `<p style='color: blue;'><b>Server:</b> ${event.data}</p>`;
+                }
             };
         </script>
     </body>
