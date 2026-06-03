@@ -1,35 +1,45 @@
 <!doctype html>
 <html>
     <body>
-        <h2>Rust WebSocket Test Client</h2>
-        <div id="output"></div>
+        <h2>Matchmaking Test Client</h2>
+        <div
+            id="identity"
+            style="font-size: 20px; font-weight: bold; margin-bottom: 10px"
+        ></div>
+        <button
+            id="joinBtn"
+            style="padding: 10px; font-size: 16px; margin-bottom: 20px"
+        >
+            Join Queue
+        </button>
+        <div
+            id="output"
+            style="font-family: monospace; background: #f4f4f4; padding: 10px"
+        ></div>
 
         <script>
-            // connect to the Rust server
+            // Generate ONE identity for this entire browser tab
+            const myPlayerId = "player_" + Math.floor(Math.random() * 10000);
+            document.getElementById("identity").innerText =
+                "You are: " + myPlayerId;
+
             const socket = new WebSocket("ws://127.0.0.1:3000/ws");
+            const output = document.getElementById("output");
 
-            // when the connection opens, send a message
             socket.onopen = function (e) {
-                document.getElementById("output").innerHTML +=
-                    "<p>Connected to server!</p>";
+                output.innerHTML +=
+                    "<p style='color: green;'>Connected to server!</p>";
+            };
 
-                // send JSON
-                const payload = {
-                    action: "join_queue",
-                    player_id: "player_99",
-                };
+            // Always send the same identity
+            document.getElementById("joinBtn").onclick = function () {
+                const payload = { action: "join_queue", player_id: myPlayerId };
                 socket.send(JSON.stringify(payload));
+                output.innerHTML += `<p><i>Sent request to join...</i></p>`;
             };
 
-            // when the Rust server echoes back, print it
             socket.onmessage = function (event) {
-                document.getElementById("output").innerHTML +=
-                    `<p>Server says: ${event.data}</p>`;
-            };
-
-            socket.onclose = function (event) {
-                document.getElementById("output").innerHTML +=
-                    "<p>Disconnected.</p>";
+                output.innerHTML += `<p style='color: blue;'><b>Server says:</b> ${event.data}</p>`;
             };
         </script>
     </body>

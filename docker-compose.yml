@@ -10,9 +10,6 @@ services:
 
   gateway:
     build: ./gateway
-    container_name: gateway
-    ports:
-      - "3000:3000"
     environment:
       - REDIS_URL=redis://matchmaker-redis/
     depends_on:
@@ -21,11 +18,20 @@ services:
 
   matchmaker:
     build: ./matchmaker
-    container_name: matchmaker
     env_file:
       - ./matchmaker/.env
     environment:
       - REDIS_ADDR=matchmaker-redis:6379
     depends_on:
       - matchmaker-redis
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - gateway
     restart: always
